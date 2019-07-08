@@ -1,0 +1,73 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: build-maven
+spec:
+  inputs:
+    resources:
+      - name: workspace
+        type: git
+    params:
+      - name: workingDir
+        description: Working directory parameter
+        default: /workspace/workspace
+  outputs:
+    resources:
+      - name: workspace
+        type: git
+  steps:
+    - name: maven-build
+      image: gcr.io/cloud-builders/mvn:3.5.0-jdk-8
+      workingDir: ${inputs.params.workingDir}
+      command: ["mvn"]
+      args:
+        # - "clean"
+        - "install"
+    - name: ls-target
+      image: ubuntu
+      command:
+        - "ls"
+      args:
+        - "-la"
+        - "/workspace/workspace/target"
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: build-kaniko
+spec:
+  inputs:
+    resources:
+      - name: workspace
+        type: git
+        targetPath: petclinic
+    params:
+      - name: workingDir
+        description: Working directory parameter
+        default: /workspace/petclinic
+      - name: DockerFilePath
+        decription: Path to DockerFile
+        default: /workspace/petclinic/Dockerfile
+  outputs:
+    resources:
+      - name: dockerImage
+        type: image
+  steps:
+    - name: kaniko-build
+      image: gcr.io/kaniko-project/executor:latest
+      command:
+        - /kaniko/executor
+      args:
+        - "--dockerfile=${inputs.params.DockerFilePath}"
+        - "--context=${inputs.params.workingDir}"
+        - "--destination=${outputs.resources.dockerImage.url}"
+      env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /secret/kaniko-secret.json
+      volumeMounts:
+        - name: kaniko-secret
+          mountPath: /secret
+  volumes:
+    - name: kaniko-secret
+      secret:
+        secretName: emea-sa-secret

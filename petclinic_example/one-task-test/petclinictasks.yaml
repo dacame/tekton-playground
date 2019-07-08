@@ -1,0 +1,104 @@
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: petclinic-git
+spec:
+  type: git
+  params:
+    - name: url
+      value: https://github.com/dcanadillas/petclinic-kaniko.git
+    # - name: revision
+    #   value: master
+---
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: petclinic-image
+spec:
+  type: image
+  params:
+    - name: url
+      value: eu.gcr.io/emea-sa-demo/petclinic-kaniko:latest
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: build-push
+spec:
+  inputs:
+    resources:
+      - name: workspace
+        type: git
+    params:
+      - name: workingDir
+        description: Working directory parameter
+        default: /workspace/workspace
+      - name: DockerFilePath
+        decription: Path to DockerFile
+        default: /workspace/workspace/Dockerfile
+  outputs:
+    resources:
+      - name: dockerImage
+        type: image
+  steps:
+    - name: maven-build
+      image: gcr.io/cloud-builders/mvn:3.5.0-jdk-8
+      workingDir: ${inputs.params.workingDir}
+      command: ["mvn"]
+      args:
+        - "clean"
+        - "install"
+    - name: kaniko-build
+      image: gcr.io/kaniko-project/executor:latest
+      command:
+        - /kaniko/executor
+      args:
+        - "--dockerfile=${inputs.params.DockerFilePath}"
+        - "--context=${inputs.params.workingDir}"
+        - "--destination=${outputs.resources.dockerImage.url}"
+      env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /secret/kaniko-secret.json
+      volumeMounts:
+        - name: kaniko-secret
+          mountPath: /secret
+    - name: ls-workspace
+      image: ubuntu
+      command:
+        - "ls"
+      args:
+        - "-la"
+        - "/workspace/workspace/"
+  volumes:
+    - name: kaniko-secret
+      secret:
+        secretName: emea-sa-secret 
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Pipeline
+metadata:
+  name: petclinic-pipeline
+spec:
+  resources:
+    - name: source-repo
+      type: git
+    - name: docker-container
+      type: image
+  # params:
+  #   - name: pathToContext
+  #     description: Path of context build
+  #     default: src
+  tasks:
+    - name: build-petclinic
+      taskRef:
+        name: build-push
+      # params:
+      #   - name: pathToContext
+      #     value: "${params.pathToContext}"
+      resources:
+        inputs:
+          - name: workspace
+            resource: source-repo
+        outputs:
+          - name: dockerImage
+            resource: docker-container

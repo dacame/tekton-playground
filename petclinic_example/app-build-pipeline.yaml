@@ -1,0 +1,81 @@
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: petclinic-git
+spec:
+  type: git
+  params:
+    - name: url
+      value: https://github.com/dcanadillas/petclinic-kaniko.git
+    # - name: revision
+    #   value: master
+---
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: petclinic-image
+spec:
+  type: image
+  params:
+    - name: url
+      value: eu.gcr.io/emea-sa-demo/petclinic-kaniko:latest
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Pipeline
+metadata:
+  name: petclinic-pipeline
+spec:
+  resources:
+    - name: source-repo
+      type: git
+    - name: docker-container
+      type: image
+  # params:
+  #   - name: pathToContext
+  #     description: Path of context build
+  #     default: src
+  tasks:
+    - name: petclinic-maven
+      taskRef:
+        name: build-maven
+      # params:
+      #   - name: pathToContext
+      #     value: "${params.pathToContext}"
+      resources:
+        inputs:
+          - name: workspace
+            resource: source-repo
+        outputs:
+          - name: workspace
+            resource: source-repo
+    - name: petclinic-kaniko
+      taskRef:
+        name: build-kaniko
+      # params:
+      #   - name: pathToContext
+      #     value: "${params.pathToContext}"
+      resources:
+        inputs:
+          - name: workspace
+            resource: source-repo
+            from: 
+              - petclinic-maven
+        outputs:
+          - name: dockerImage
+            resource: docker-container
+---
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineRun
+metadata:
+  name: petclinic-pipelinerun
+spec:
+  pipelineRef:
+    name: petclinic-pipeline
+  serviceAccount: 'default'
+  resources:
+  - name: source-repo
+    resourceRef:
+      name: petclinic-git
+  - name: docker-container
+    resourceRef:
+      name: petclinic-image

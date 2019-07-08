@@ -1,0 +1,12 @@
+apiVersion: tekton.dev/v1alpha1
+kind: TaskRun
+metadata:
+  name: petclinic-maven-taskrun
+spec:
+  taskRef:
+    name: build-push
+  inputs:
+    resources:
+      - name: workspace
+        resourceRef:
+          name: petclinic-git
