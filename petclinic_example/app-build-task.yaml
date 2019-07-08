@@ -71,3 +71,44 @@ spec:
     - name: kaniko-secret
       secret:
         secretName: emea-sa-secret
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: deploy-kubectl
+spec:
+  inputs:
+    resources:
+      - name: workspacedeploy
+        type: git
+    params:
+      - name: workingDir
+        description: Working directory parameter
+        default: /workspace/workspacedeploy
+      - name: deployFile
+        description: Deployment file for app
+        default: test-deploy.yaml
+        # Just a parameter to check the depployment name, because one step will force redeploy
+      - name: deploymentName
+        description: The K8s deployment object name
+        default: petclinic
+  steps:
+    - name: kubectl-clean
+      image: gcr.io/cloud-builders/kubectl:latest
+      workingDir: ${inputs.params.workingDir}
+      command: ["/bin/bash"]
+      args:
+        - -c
+        - MYDEPLOY=$(kubectl get deployments -l app=petclinic -o name | awk -F'/' '{print $2}');
+        - if [ "$MYDEPLOY" = "${inputs.params.deploymentName}" ];
+        - then kubectl delete deployment $MYDEPLOY;
+        - fi
+    - name: kubectl-deploy
+      image: gcr.io/cloud-builders/kubectl:latest
+      workingDir: ${inputs.params.workingDir}
+      command: ["kubectl"]
+      args:
+        - apply
+        - -f 
+        - ${inputs.params.deployFile}
+
