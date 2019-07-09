@@ -1,12 +1,12 @@
 apiVersion: tekton.dev/v1alpha1
 kind: PipelineRun
 metadata:
-  name: petclinic-pipelinerun
+  name: helloworld-pipelinerun
 spec:
   pipelineRef:
-    name: petclinic-pipeline
+    name: helloworld-pipeline
   serviceAccount: 'default'
-  resources:
-  - name: source-repo
-    resourceRef:
-      name: petclinic-git
+  # resources:
+  #   - name: builtImage
+  #     resourceRef: 
+  #       name: cb-core-image

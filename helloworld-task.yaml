@@ -1,3 +1,13 @@
+# apiVersion: tekton.dev/v1alpha1
+# kind: PipelineResource
+# metadata:
+#   name: cb-core-image
+# spec:
+#   type: image
+#   params:
+#     - name: url
+#       value: cloudbees/cloudbees-core-mm
+# ---
 apiVersion: tekton.dev/v1alpha1
 kind: Task
 metadata:
@@ -5,19 +15,69 @@ metadata:
 spec:
   steps:
     - name: echo
-      image: ubuntu
+      image: alpine
       command:
         - echo
       args:
         - "Hello world"
+    - name: ls-step
+      image: alpine
+      command:
+        - ls
+      args:
+        - "-al"
+    - name: pwd-step
+      image: alpine
+      command:
+        - pwd
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: kubectl-example
+spec:
+  steps:
+    - name: get-pods
+      image: gcr.io/cloud-builders/kubectl:latest
+      command:
+        - kubectl
+      args:
+        - get
+        - pods
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: maven-task
+spec:
+  steps:
+    - name: maven-step
+      image: maven
+      command:
+        - mvn
+      args:
+        - -version
 
 ---
 apiVersion: tekton.dev/v1alpha1
 kind: Pipeline
 metadata:
-  name: hello-world-pipeline
+  name: helloworld-pipeline
 spec:
+  # resources:
+  #   - name: builtImage
+  #     type: image
   tasks:
-    - name: echo-hello-world
+    - name: hello-world
       taskRef:
         name: echo-hello-world
+    - name: kubectl
+      taskRef:
+        name: kubectl-example
+      runAfter:
+        - hello-world
+    # - name: maven
+    #   taskRef:
+    #     name: maven-task
+    #   # runAfter:
+    #   #   - kubectl
