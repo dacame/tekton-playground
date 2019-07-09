@@ -95,7 +95,7 @@ metadata:
 spec:
   pipelineRef:
     name: petclinic-pipeline
-  serviceAccount: 'default'
+  serviceAccount: 'tekton-deployment'
   resources:
   - name: source-repo
     resourceRef:
